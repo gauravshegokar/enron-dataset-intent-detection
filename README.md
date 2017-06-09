@@ -5,7 +5,10 @@ Its a 2-class classification problem.
 
 ## Model Building
 
-Naive Bayes Classifier is Used.
-NB gives 90% accuracy on training set, 70.3% accuracy on sampled-test set, and 67.3% accuracy on untouched test set.
+### Naive Bayes
+Naive Bayes gives 90% accuracy on training set, 70.3% accuracy on sampled-test set, and 67.3% accuracy on untouched test set.
+
+### SVM
+SVM gives 89.19% accuracy on training set, 79.03% accuracy on test set, which is faar better than Naive Bayes.
 
 ## You Need to change paths in script.py to text datasets 

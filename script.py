@@ -72,6 +72,11 @@ trainData, trainLabels = cleanData(trainRaw)
 #### Model Building ####
 ########################
 
+
+#####################
+#### Naive Bayes ####
+#####################
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -79,10 +84,8 @@ from textblob.classifiers import NaiveBayesClassifier as NBC
 
 df = pd.DataFrame({"labels": trainLabels, "trainData": trainData})
 
-## Partitioning train test datasets (25% data into test dataset)
 train, test = train_test_split(df, test_size = 0.25)
 
-## Creating list of tuples
 training = zip(train["trainData"].tolist() , train["labels"].tolist())
 
 testing = zip(test["trainData"].tolist() , test["labels"].tolist())
@@ -93,8 +96,8 @@ testing = zip(test["trainData"].tolist() , test["labels"].tolist())
 from sklearn.externals import joblib
 
 ## Saving model
-# joblib.dump(model, './Desktop/stride.ai/NBmodel.pkl') 
-# model = joblib.load('NBmodel.pkl')
+joblib.dump(model, './Desktop/stride.ai/NBmodel.pkl') 
+model = joblib.load('NBmodel.pkl')
 
 %time print(model.accuracy(training))
 ## getting accuracy of 90%
@@ -122,3 +125,54 @@ testing =  zip(testData , testLabels)
 
 %time print(model.accuracy(testing))
 ## getting accuracy of 67.3%
+
+
+#####################
+####     SVM     ####
+#####################
+
+trainData, trainLabels = cleanData(trainRaw)
+testData, testLabels = cleanData(testRaw)
+
+### Adding train and test datasets for SVM as SVM requires same dimentions 
+### for training and test set 
+
+data = trainData + testData
+labels = trainLabels + testLabels
+
+#################
+##### TFIDF #####
+#################
+
+def getTFIDF(data):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    vectorizer = TfidfVectorizer(min_df=1)
+    X = vectorizer.fit_transform(data)
+    return X
+
+X = getTFIDF(data)
+Y = labels
+
+### Spliting data 
+from sklearn.cross_validation import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(
+  X, Y, test_size=0.2, random_state=42
+)
+
+## SVM Model
+from sklearn.svm import SVC
+## Value of C is calculated using grid search
+svm = SVC(C=2500.0, kernel='rbf')
+svm.fit(x_train, y_train)
+
+print(svm.score(x_train, y_train))
+## 89% accuracy
+
+print(svm.score(x_test, y_test))
+## 79% accuracy
+
+from sklearn.metrics import confusion_matrix
+pred = svm.predict(x_test)
+print(confusion_matrix(pred, y_test))
+# [[464 116]
+# [ 79 271]]
