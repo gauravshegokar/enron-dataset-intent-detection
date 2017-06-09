@@ -1,7 +1,6 @@
 ######################
 #### Getting Data ####
 ######################
-
 with open('./Desktop/stride.ai/data/enron_train.txt') as f:
     train = f.readlines()
 trainRaw = [x.strip() for x in train]
@@ -10,12 +9,11 @@ with open('./Desktop/stride.ai/data/enron_test.txt') as f:
     test = f.readlines()
 testRaw = [x.strip() for x in test]
 
+
 #######################
 #### Cleaning Data ####
 #######################
-
 def cleanData(train):
-    
     labels = [i.split('\t', 1)[0] for i in train]
     trainData = [i.split('\t', 1)[1] for i in train]
 
@@ -65,18 +63,37 @@ def cleanData(train):
     trainData = [i.strip() for i in trainData]
     
     return trainData, labels
+    
+#################
+##### TFIDF #####
+#################
+def getTFIDF(data):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    vectorizer = TfidfVectorizer(min_df=1)
+    X = vectorizer.fit_transform(data)
+    return X
+    
+###################
+### get n grams ###
+###################
+def getNgrams(txt, n):
+    from nltk import ngrams
+    ngrams = ngrams(txt.split(), n)
+    l = []
+    for grams in ngrams:
+        l.append('_'.join(map(str,grams)))
+    fl = ' '.join(l)
+    return fl
 
+## Cleaning train data
 trainData, trainLabels = cleanData(trainRaw)
 
-########################
-#### Model Building ####
-########################
 
+################# Model Building ##################
 
 #####################
 #### Naive Bayes ####
 #####################
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -87,22 +104,16 @@ df = pd.DataFrame({"labels": trainLabels, "trainData": trainData})
 train, test = train_test_split(df, test_size = 0.25)
 
 training = zip(train["trainData"].tolist() , train["labels"].tolist())
-
 testing = zip(test["trainData"].tolist() , test["labels"].tolist())
 
-
+## training model
 %time model = NBC(training)
-
-from sklearn.externals import joblib
-
-## Saving model
-joblib.dump(model, './Desktop/stride.ai/NBmodel.pkl') 
-model = joblib.load('NBmodel.pkl')
 
 %time print(model.accuracy(training))
 ## getting accuracy of 90%
 
-model.show_informative_features()
+## Shows important features for detecting intent
+print model.show_informative_features()
 #Most Informative Features
 #        contains(please) = True              Yes : No     =     10.0 : 1.0
 #            contains(ve) = True               No : Yes    =      9.9 : 1.0
@@ -115,45 +126,33 @@ model.show_informative_features()
 #        contains(experi) = True               No : Yes    =      6.9 : 1.0
 #         contains(remov) = True               No : Yes    =      6.9 : 1.0
 
-
 %time print(model.accuracy(testing))
 ## getting accuracy of 70.3%
 
 testData, testLabels = cleanData(testRaw)
 
 testing =  zip(testData , testLabels)
-
 %time print(model.accuracy(testing))
 ## getting accuracy of 67.3%
 
+#-----------------------------------------------------------------------#
 
 #####################
 ####     SVM     ####
 #####################
-
 trainData, trainLabels = cleanData(trainRaw)
 testData, testLabels = cleanData(testRaw)
 
-### Adding train and test datasets for SVM as SVM requires same dimentions 
-### for training and test set 
-
+### Adding train and test datasets for SVM as SVM requires 
+### same dimentions, number of features for training and test set
 data = trainData + testData
 labels = trainLabels + testLabels
 
-#################
-##### TFIDF #####
-#################
-
-def getTFIDF(data):
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    vectorizer = TfidfVectorizer(min_df=1)
-    X = vectorizer.fit_transform(data)
-    return X
-
+## getting TFIDF matrix
 X = getTFIDF(data)
 Y = labels
 
-### Spliting data 
+### Spliting data 80% train - 20% test
 from sklearn.cross_validation import train_test_split
 x_train, x_test, y_train, y_test = train_test_split(
   X, Y, test_size=0.2, random_state=42
@@ -162,17 +161,94 @@ x_train, x_test, y_train, y_test = train_test_split(
 ## SVM Model
 from sklearn.svm import SVC
 ## Value of C is calculated using grid search
-svm = SVC(C=2500.0, kernel='rbf')
+svm = SVC(C=2300, kernel='rbf')
 svm.fit(x_train, y_train)
 
-print(svm.score(x_train, y_train))
-## 89% accuracy
+print "\nSVM"
+print "train accuracy", svm.score(x_train, y_train)
+## 88.81% accuracy
 
-print(svm.score(x_test, y_test))
-## 79% accuracy
+print "test accuracy", svm.score(x_test, y_test)
+## 79.03% accuracy
 
 from sklearn.metrics import confusion_matrix
 pred = svm.predict(x_test)
-print(confusion_matrix(pred, y_test))
-# [[464 116]
-# [ 79 271]]
+print "Confusion Matrix\n", confusion_matrix(y_test, pred)
+# [[466  77]
+# [118 269]]
+
+
+##########################
+#### SVM with 2-gram  ####
+##########################
+
+## getting 2-grams LM
+data2gram = [getNgrams(i,2) for i in data]
+
+## getting TFIDF matrix
+X = getTFIDF(data2gram)
+Y = labels
+
+### Spliting data 
+from sklearn.cross_validation import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(
+  X, Y, test_size=0.2, random_state=42
+)
+
+## SVM Model for 2-gram
+from sklearn.svm import SVC
+## value of C has been obtained using grid search
+svm = SVC(C=11000, kernel='rbf')
+svm.fit(x_train, y_train)
+
+print "\nSVM with 2-gram"
+print "train accuracy", svm.score(x_train, y_train)
+## 95.61% accuracy
+
+print "test accuracy", svm.score(x_test, y_test)
+## 78.60% accuracy
+
+from sklearn.metrics import confusion_matrix
+pred = svm.predict(x_test)
+print "Confusion Matrix\n", confusion_matrix(y_test, pred)
+# [[470 128]
+#  [ 73 259]]
+
+
+
+###########################
+##### SVM with 3-gram #####
+###########################
+
+## getting 3-grams LM
+data3gram = [getNgrams(i,3) for i in data]
+
+## getting TFIDF matrix
+X = getTFIDF(data3gram)
+Y = labels
+
+### Spliting data 
+from sklearn.cross_validation import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(
+  X, Y, test_size=0.2, random_state=42
+)
+
+## SVM Model for 3-gram
+from sklearn.svm import SVC
+## value of C has been obtained using grid search
+svm = SVC(C=23000 ,kernel='rbf')
+svm.fit(x_train, y_train)
+
+print "\n3-gram"
+print "train accuracy", svm.score(x_train, y_train)
+## 99% accuracy
+
+print "test accuracy", svm.score(x_test, y_test) 
+## 75.16% accuracy
+
+from sklearn import metrics
+pred = svm.predict(x_test)
+print "Confusion Matrix\n", metrics.confusion_matrix(y_test, pred)
+# [[507  36]
+# [195 192]]
+
